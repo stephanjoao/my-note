@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cadernos</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-actions">
+        <button class="ghost icon-button sidebar-toggle action-collapse" id="toggleSidebarButton" type="button" aria-label="Compactar painel" title="Compactar" data-tooltip="Compactar"><span aria-hidden="true">&#9666;</span></button>
+        <button class="ghost icon-button compact-action action-notebook" id="addNotebookButton" type="button" aria-label="Novo caderno" title="Novo caderno" data-tooltip="Novo caderno">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M6.5 4.75h9.75A2.25 2.25 0 0 1 18.5 7v12.25H8.25A2.25 2.25 0 0 1 6 17V5.25a.5.5 0 0 1 .5-.5Z"></path>
+            <path d="M8.25 19.25A2.25 2.25 0 0 1 6 17"></path>
+            <path d="M9 8h6.25"></path>
+            <path d="M9 11h5"></path>
+            <path d="M18.5 7h1.25v12.25H18.5"></path>
+          </svg>
+        </button>
+        <button class="icon-button compact-action action-text" id="addTextButton" type="button" aria-label="Criar texto" title="Texto" data-tooltip="Texto">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M5 5.5h14"></path>
+            <path d="M12 5.5v13"></path>
+            <path d="M8.5 18.5h7"></path>
+          </svg>
+        </button>
+        <button class="icon-button compact-action action-table" id="addTableButton" type="button" aria-label="Criar tabela" title="Tabela" data-tooltip="Tabela">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <rect x="4.5" y="5" width="15" height="14" rx="2"></rect>
+            <path d="M4.5 10h15"></path>
+            <path d="M4.5 14.5h15"></path>
+            <path d="M10 5v14"></path>
+            <path d="M15 5v14"></path>
+          </svg>
+        </button>
+        <button class="ghost icon-button compact-action action-fit" id="fitViewButton" type="button" aria-label="Centralizar canvas" title="Centralizar" data-tooltip="Centralizar">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M8 4H5.5A1.5 1.5 0 0 0 4 5.5V8"></path>
+            <path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8"></path>
+            <path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16"></path>
+            <path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"></path>
+            <circle cx="12" cy="12" r="3.25"></circle>
+            <path d="M12 8.75v6.5"></path>
+            <path d="M8.75 12h6.5"></path>
+          </svg>
+        </button>
+        <button class="ghost icon-button compact-action action-theme" id="themeToggleButton" type="button" aria-label="Ativar modo escuro" title="Modo escuro" data-tooltip="Modo escuro"><span aria-hidden="true">&#9790;</span></button>
+      </div>
+      <div class="sidebar-divider" aria-hidden="true"></div>
+
+      <section class="sidebar-section">
+        <div class="list tree-list" id="notebookList"></div>
+      </section>
+
+      <div class="sidebar-footer">
+        <button class="ghost icon-button settings-sidebar-button" id="settingsButton" type="button" aria-label="Configurações" title="Configurações" data-tooltip="Configurações">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4.5 7h5"></path>
+            <path d="M14.5 7h5"></path>
+            <circle cx="12" cy="7" r="2.1"></circle>
+            <path d="M4.5 12h9"></path>
+            <path d="M18.5 12h1"></path>
+            <circle cx="16" cy="12" r="2.1"></circle>
+            <path d="M4.5 17h1"></path>
+            <path d="M10.5 17h9"></path>
+            <circle cx="8" cy="17" r="2.1"></circle>
+          </svg>
+        </button>
+        <section class="sidebar-settings-menu" id="settingsMenu" hidden>
+          <label class="settings-option">
+            <span>Modo escuro</span>
+            <input id="darkModeSetting" type="checkbox">
+          </label>
+          <label class="settings-option">
+            <span>Mostrar grade</span>
+            <input id="gridSetting" type="checkbox" checked>
+          </label>
+          <label class="settings-option">
+            <span id="languageSettingLabel">Idioma</span>
+            <select id="languageSetting">
+              <option value="pt">Português</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <div class="settings-divider" aria-hidden="true"></div>
+          <button class="ghost menu-action" id="exportDataSetting" type="button">Exportar JSON</button>
+          <button class="ghost menu-action" id="importDataSetting" type="button">Importar JSON</button>
+          <input class="import-file-input" id="importDataInput" type="file" accept="application/json,.json" hidden>
+          <div class="settings-divider" aria-hidden="true"></div>
+          <button class="ghost menu-action" id="resetZoomSetting" type="button">Zoom 100%</button>
+          <button class="ghost menu-action" id="fitViewSetting" type="button">Centralizar</button>
+        </section>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <section class="canvas-shell">
+        <div class="canvas-viewport" id="canvasViewport">
+          <div class="canvas-grid" id="canvasGrid"></div>
+          <div class="canvas-stage" id="canvasStage">
+            <div class="block-layer" id="blockLayer"></div>
+          </div>
+          <div class="zoom-controls">
+            <button class="icon-button zoom-button" id="zoomInButton" type="button" aria-label="Zoom in">+</button>
+            <div class="zoom-level" id="zoomLevel">100%</div>
+            <button class="icon-button zoom-button" id="zoomOutButton" type="button" aria-label="Zoom out">-</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <template id="textBlockTemplate">
+    <article class="block text-block">
+      <header class="block-head">
+        <div class="block-head-left">
+          <div class="note-head-content">
+            <input class="note-title-input" type="text" placeholder="Título da nota">
+            <button class="note-category-badge" type="button">Sem categoria</button>
+          </div>
+        </div>
+        <div class="block-actions">
+          <button class="ghost icon-button settings-toggle-button" type="button" aria-label="Ações da nota" title="Ações da nota">&ctdot;</button>
+        </div>
+      </header>
+      <section class="settings-menu" hidden>
+        <button class="ghost menu-action change-category-button" type="button">Categoria</button>
+        <button class="ghost menu-action copy-block-button" type="button">Copiar</button>
+        <button class="ghost menu-action paste-block-button" type="button">Colar cópia</button>
+        <div class="color-picker-row">
+          <span class="menu-label">Cor</span>
+          <div class="color-options">
+            <button class="color-swatch" type="button" data-color="default" aria-label="Cor padrão"></button>
+            <button class="color-swatch" type="button" data-color="peach" aria-label="Cor pêssego"></button>
+            <button class="color-swatch" type="button" data-color="sage" aria-label="Cor verde"></button>
+            <button class="color-swatch" type="button" data-color="sky" aria-label="Cor azul"></button>
+            <button class="color-swatch" type="button" data-color="rose" aria-label="Cor rosa"></button>
+          </div>
+        </div>
+        <button class="ghost danger menu-action remove-block-button" type="button">Deletar</button>
+      </section>
+      <div class="text-format-toolbar" aria-label="Formatação do texto">
+        <button class="text-format-button" type="button" data-command="bold" aria-label="Negrito" title="Negrito"><strong>B</strong></button>
+        <button class="text-format-button" type="button" data-command="italic" aria-label="Itálico" title="Itálico"><em>I</em></button>
+        <button class="text-format-button" type="button" data-command="underline" aria-label="Sublinhado" title="Sublinhado"><span class="underline-icon">U</span></button>
+        <button class="text-format-button" type="button" data-command="insertUnorderedList" aria-label="Lista" title="Lista">&bull;</button>
+      </div>
+      <div class="text-editor" contenteditable="true" data-placeholder="Escreva aqui..."></div>
+      <button class="resize-handle" type="button" aria-label="Redimensionar bloco"></button>
+    </article>
+  </template>
+
+  <template id="tableBlockTemplate">
+    <article class="block table-block">
+      <header class="block-head">
+        <div class="block-head-left">
+          <div class="note-head-content">
+            <input class="note-title-input" type="text" placeholder="Título da nota">
+            <button class="note-category-badge" type="button">Sem categoria</button>
+          </div>
+        </div>
+        <div class="block-actions">
+          <button class="ghost icon-button settings-toggle-button" type="button" aria-label="Ações da nota" title="Ações da nota">&ctdot;</button>
+        </div>
+      </header>
+      <section class="settings-menu" hidden>
+        <button class="ghost menu-action change-category-button" type="button">Categoria</button>
+        <button class="ghost menu-action copy-block-button" type="button">Copiar</button>
+        <button class="ghost menu-action paste-block-button" type="button">Colar cópia</button>
+        <div class="color-picker-row">
+          <span class="menu-label">Cor</span>
+          <div class="color-options">
+            <button class="color-swatch" type="button" data-color="default" aria-label="Cor padrão"></button>
+            <button class="color-swatch" type="button" data-color="peach" aria-label="Cor pêssego"></button>
+            <button class="color-swatch" type="button" data-color="sage" aria-label="Cor verde"></button>
+            <button class="color-swatch" type="button" data-color="sky" aria-label="Cor azul"></button>
+            <button class="color-swatch" type="button" data-color="rose" aria-label="Cor rosa"></button>
+          </div>
+        </div>
+        <div class="settings-row table-tools">
+          <button class="ghost table-tool-button add-row-button" type="button">Linha +</button>
+          <button class="ghost table-tool-button remove-row-button" type="button">Linha -</button>
+          <button class="ghost table-tool-button add-column-button" type="button">Coluna +</button>
+          <button class="ghost table-tool-button remove-column-button" type="button">Coluna -</button>
+        </div>
+        <button class="ghost menu-action toggle-header-button" type="button">Cabeçalho</button>
+        <button class="ghost menu-action clear-table-button" type="button">Limpar tabela</button>
+        <button class="ghost danger menu-action remove-block-button" type="button">Deletar</button>
+      </section>
+      <div class="table-scroll">
+        <table class="table-editor">
+          <tbody></tbody>
+        </table>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
