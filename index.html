@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cadernos</title>
+  <title>my note</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23ad623f'/%3E%3Cpath d='M20 14h24a4 4 0 0 1 4 4v32H24a8 8 0 0 1-8-8V18a4 4 0 0 1 4-4Z' fill='%23fffdf8'/%3E%3Cpath d='M25 26h15M25 34h12' stroke='%23ad623f' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,6 +19,14 @@
             <path d="M9 8h6.25"></path>
             <path d="M9 11h5"></path>
             <path d="M18.5 7h1.25v12.25H18.5"></path>
+          </svg>
+        </button>
+        <button class="icon-button compact-action action-page" id="addPageButton" type="button" aria-label="Nova pÃ¡gina" title="Nova pÃ¡gina" data-tooltip="Nova pÃ¡gina">
+          <svg class="toolbar-icon" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M6.75 4.5h7.75L18.5 8.5v10.25a.75.75 0 0 1-.75.75h-11a.75.75 0 0 1-.75-.75V5.25a.75.75 0 0 1 .75-.75Z"></path>
+            <path d="M14.5 4.75V8.5h3.75"></path>
+            <path d="M12.25 11.25v5"></path>
+            <path d="M9.75 13.75h5"></path>
           </svg>
         </button>
         <button class="icon-button compact-action action-text" id="addTextButton" type="button" aria-label="Criar texto" title="Texto" data-tooltip="Texto">
@@ -100,6 +109,7 @@
       <section class="canvas-shell">
         <div class="canvas-viewport" id="canvasViewport">
           <div class="canvas-grid" id="canvasGrid"></div>
+          <div class="canvas-location-label" id="canvasLocationLabel" aria-hidden="true" hidden></div>
           <div class="canvas-stage" id="canvasStage">
             <div class="block-layer" id="blockLayer"></div>
           </div>
@@ -130,25 +140,25 @@
         <button class="ghost menu-action change-category-button" type="button">Categoria</button>
         <button class="ghost menu-action copy-block-button" type="button">Copiar</button>
         <button class="ghost menu-action paste-block-button" type="button">Colar cópia</button>
-        <div class="color-picker-row">
-          <span class="menu-label">Cor</span>
-          <div class="color-options">
-            <button class="color-swatch" type="button" data-color="default" aria-label="Cor padrão"></button>
-            <button class="color-swatch" type="button" data-color="peach" aria-label="Cor pêssego"></button>
-            <button class="color-swatch" type="button" data-color="sage" aria-label="Cor verde"></button>
-            <button class="color-swatch" type="button" data-color="sky" aria-label="Cor azul"></button>
-            <button class="color-swatch" type="button" data-color="rose" aria-label="Cor rosa"></button>
-          </div>
-        </div>
         <button class="ghost danger menu-action remove-block-button" type="button">Deletar</button>
       </section>
-      <div class="text-format-toolbar" aria-label="Formatação do texto">
-        <button class="text-format-button" type="button" data-command="bold" aria-label="Negrito" title="Negrito"><strong>B</strong></button>
-        <button class="text-format-button" type="button" data-command="italic" aria-label="Itálico" title="Itálico"><em>I</em></button>
-        <button class="text-format-button" type="button" data-command="underline" aria-label="Sublinhado" title="Sublinhado"><span class="underline-icon">U</span></button>
-        <button class="text-format-button" type="button" data-command="insertUnorderedList" aria-label="Lista" title="Lista">&bull;</button>
+      <div class="text-editor-shell">
+        <div class="text-editor" contenteditable="true" data-placeholder="Escreva aqui..."></div>
+        <button class="ghost text-format-toggle" type="button" aria-label="Mostrar formatação" title="Mostrar formatação">Aa</button>
       </div>
-      <div class="text-editor" contenteditable="true" data-placeholder="Escreva aqui..."></div>
+      <div class="text-format-toolbar" aria-label="Formatação do texto">
+        <button class="text-format-button" type="button" data-command="formatBlock" data-value="H2" data-label-key="heading" aria-label="Título" title="Título">H</button>
+        <button class="text-format-button" type="button" data-command="formatBlock" data-value="BLOCKQUOTE" data-label-key="quote" aria-label="Citação" title="Citação">&ldquo;</button>
+        <span class="format-divider" aria-hidden="true"></span>
+        <button class="text-format-button" type="button" data-command="bold" data-label-key="bold" aria-label="Negrito" title="Negrito"><strong>B</strong></button>
+        <button class="text-format-button" type="button" data-command="italic" data-label-key="italic" aria-label="Itálico" title="Itálico"><em>I</em></button>
+        <button class="text-format-button" type="button" data-command="underline" data-label-key="underline" aria-label="Sublinhado" title="Sublinhado"><span class="underline-icon">U</span></button>
+        <button class="text-format-button" type="button" data-command="strikeThrough" data-label-key="strikethrough" aria-label="Tachado" title="Tachado"><span class="strike-icon">S</span></button>
+        <span class="format-divider" aria-hidden="true"></span>
+        <button class="text-format-button" type="button" data-command="insertUnorderedList" data-label-key="list" aria-label="Lista" title="Lista">&bull;</button>
+        <button class="text-format-button" type="button" data-command="insertOrderedList" data-label-key="orderedList" aria-label="Lista numerada" title="Lista numerada">1.</button>
+        <button class="text-format-button text-format-button-wide" type="button" data-command="removeFormat" data-label-key="clearFormatting" aria-label="Limpar formatação" title="Limpar formatação">Tx</button>
+      </div>
       <button class="resize-handle" type="button" aria-label="Redimensionar bloco"></button>
     </article>
   </template>
@@ -170,16 +180,6 @@
         <button class="ghost menu-action change-category-button" type="button">Categoria</button>
         <button class="ghost menu-action copy-block-button" type="button">Copiar</button>
         <button class="ghost menu-action paste-block-button" type="button">Colar cópia</button>
-        <div class="color-picker-row">
-          <span class="menu-label">Cor</span>
-          <div class="color-options">
-            <button class="color-swatch" type="button" data-color="default" aria-label="Cor padrão"></button>
-            <button class="color-swatch" type="button" data-color="peach" aria-label="Cor pêssego"></button>
-            <button class="color-swatch" type="button" data-color="sage" aria-label="Cor verde"></button>
-            <button class="color-swatch" type="button" data-color="sky" aria-label="Cor azul"></button>
-            <button class="color-swatch" type="button" data-color="rose" aria-label="Cor rosa"></button>
-          </div>
-        </div>
         <div class="settings-row table-tools">
           <button class="ghost table-tool-button add-row-button" type="button">Linha +</button>
           <button class="ghost table-tool-button remove-row-button" type="button">Linha -</button>

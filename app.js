@@ -1,17 +1,22 @@
-﻿const STORAGE_KEY = "simple-notes-canvas-v1";
+﻿const STORAGE_KEY = "simple-notes-canvas-v3";
+const LEGACY_STORAGE_KEYS = ["simple-notes-canvas-v1", "simple-notes-canvas-v2"];
 const THEME_STORAGE_KEY = "simple-notes-theme";
 const GRID_STORAGE_KEY = "simple-notes-grid";
 const LANGUAGE_STORAGE_KEY = "simple-notes-language";
 const EXPORT_FORMAT = "simple-notes-canvas-json";
 const EXPORT_VERSION = 1;
 const TABLE_BLOCK_MIN_WIDTH = 360;
+const TEXT_BLOCK_DEFAULT_WIDTH = 420;
+const TEXT_BLOCK_DEFAULT_HEIGHT = 260;
 const TABLE_BLOCK_HORIZONTAL_CHROME = 24;
 const TABLE_BLOCK_VERTICAL_CHROME = 126;
 const TABLE_MIN_COLUMN_WIDTH = 96;
 const TABLE_MIN_ROW_HEIGHT = 42;
+const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized";
+const CATEGORY_COLOR_KEYS = ["default", "peach", "sage", "sky", "rose", "gold", "lavender", "mint", "sand"];
 const translations = {
   pt: {
-    appTitle: "Cadernos",
+    appTitle: "my note",
     collapsePanel: "Compactar painel",
     collapse: "Compactar",
     expandPanel: "Expandir painel",
@@ -48,7 +53,12 @@ const translations = {
     bold: "Negrito",
     italic: "It\u00e1lico",
     underline: "Sublinhado",
+    strikethrough: "Tachado",
     list: "Lista",
+    orderedList: "Lista numerada",
+    heading: "T\u00edtulo",
+    quote: "Cita\u00e7\u00e3o",
+    clearFormatting: "Limpar formata\u00e7\u00e3o",
     writeHere: "Escreva aqui...",
     resizeBlock: "Redimensionar bloco",
     resizeColumn: "Redimensionar coluna",
@@ -118,7 +128,14 @@ const translations = {
     emptyCanvasTitle: "Nada por aqui ainda",
     emptyCanvasMessage: "Crie um bloco de texto ou tabela e arraste pelo canvas.",
     chooseCategory: "Escolher categoria",
+    chooseCategoryColor: "Escolher cor da categoria",
     noCategory: "Nenhuma categoria",
+    showFormatting: "Mostrar formatação",
+    hideFormatting: "Ocultar formatação",
+    goldColor: "Cor dourada",
+    lavenderColor: "Cor lavanda",
+    mintColor: "Cor menta",
+    sandColor: "Cor areia",
     enableHeader: "Ativar cabe\u00e7alho",
     hideHeader: "Ocultar cabe\u00e7alho",
     newNote: "Nova nota",
@@ -126,7 +143,7 @@ const translations = {
     noteDefault: "Nota"
   },
   en: {
-    appTitle: "Notebooks",
+    appTitle: "my note",
     collapsePanel: "Collapse panel",
     collapse: "Collapse",
     expandPanel: "Expand panel",
@@ -163,7 +180,12 @@ const translations = {
     bold: "Bold",
     italic: "Italic",
     underline: "Underline",
+    strikethrough: "Strikethrough",
     list: "List",
+    orderedList: "Numbered list",
+    heading: "Heading",
+    quote: "Quote",
+    clearFormatting: "Clear formatting",
     writeHere: "Write here...",
     resizeBlock: "Resize block",
     resizeColumn: "Resize column",
@@ -233,7 +255,14 @@ const translations = {
     emptyCanvasTitle: "Nothing here yet",
     emptyCanvasMessage: "Create a text block or table and drag it around the canvas.",
     chooseCategory: "Choose category",
+    chooseCategoryColor: "Choose category color",
     noCategory: "No categories",
+    showFormatting: "Show formatting",
+    hideFormatting: "Hide formatting",
+    goldColor: "Gold color",
+    lavenderColor: "Lavender color",
+    mintColor: "Mint color",
+    sandColor: "Sand color",
     enableHeader: "Show header",
     hideHeader: "Hide header",
     newNote: "New note",
@@ -246,39 +275,160 @@ const t = (key, ...args) => {
   const value = translations[currentLanguage]?.[key] ?? translations.pt[key] ?? key;
   return typeof value === "function" ? value(...args) : value;
 };
+function createInitialTextBlock({ title, category, x, y, content }) {
+  return {
+    id: crypto.randomUUID(),
+    type: "text",
+    title,
+    category,
+    x,
+    y,
+    width: TEXT_BLOCK_DEFAULT_WIDTH,
+    height: TEXT_BLOCK_DEFAULT_HEIGHT,
+    content,
+    contentHtml: ""
+  };
+}
+
+function createInitialTableBlock({ title, category, x, y, cells }) {
+  return {
+    id: crypto.randomUUID(),
+    type: "table",
+    title,
+    category,
+    x,
+    y,
+    width: 520,
+    height: 260,
+    cells,
+    hasHeader: true,
+    columnWidths: [170, 150, 150],
+    rowHeights: cells.map(() => 48)
+  };
+}
+
 const initialState = {
   notebooks: [
     {
       id: crypto.randomUUID(),
-      name: t("personal"),
+      name: "Pessoal",
       emoji: "📓",
       pages: [
         {
           id: crypto.randomUUID(),
-          title: t("samplePage"),
+          title: "Casa",
           blocks: [
-            {
-              id: crypto.randomUUID(),
-              type: "text",
-              x: 2400,
-              y: 2400,
-              width: 340,
-              height: 220,
-              content: t("sampleText")
-            },
-            {
-              id: crypto.randomUUID(),
-              type: "table",
+            createInitialTextBlock({
+              title: "Rotina da semana",
+              category: "Planejamento",
+              x: 2320,
+              y: 2350,
+              content: "Segunda: revisar agenda\nQuarta: mercado\nSexta: organizar a casa"
+            }),
+            createInitialTextBlock({
+              title: "Ideias rápidas",
+              category: "Ideias",
+              x: 2800,
+              y: 2390,
+              content: "Use esta página para soltar lembretes pessoais, listas e planos pequenos."
+            })
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          title: "Viagens",
+          blocks: [
+            createInitialTextBlock({
+              title: "Próxima pausa",
+              category: "Inspiração",
+              x: 2450,
+              y: 2450,
+              content: "Escolher destino, datas possíveis e uma lista curta do que reservar primeiro."
+            })
+          ]
+        }
+      ]
+    },
+    {
+      id: crypto.randomUUID(),
+      name: "Trabalho",
+      emoji: "💼",
+      pages: [
+        {
+          id: crypto.randomUUID(),
+          title: "Projetos",
+          blocks: [
+            createInitialTextBlock({
+              title: "Sprint atual",
+              category: "Planejamento",
+              x: 2320,
+              y: 2360,
+              content: "Priorizar tarefas pequenas, registrar decisões e manter os próximos passos visíveis."
+            }),
+            createInitialTableBlock({
+              title: "Acompanhamento",
+              category: "Tarefas",
               x: 2800,
               y: 2520,
-              width: 480,
-              height: 260,
               cells: [
-                [t("task"), t("status"), t("dueDate")],
-                [t("example"), t("inProgress"), t("today")],
-                [t("otherItem"), t("done"), t("tomorrow")]
+                ["Tarefa", "Status", "Prazo"],
+                ["Revisar notas", "Em andamento", "Hoje"],
+                ["Enviar resumo", "Pendente", "Amanhã"]
               ]
-            }
+            })
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          title: "Reuniões",
+          blocks: [
+            createInitialTextBlock({
+              title: "Pauta base",
+              category: "Reuniões",
+              x: 2450,
+              y: 2450,
+              content: "Objetivo\nDecisões tomadas\nResponsáveis\nPróxima ação"
+            })
+          ]
+        }
+      ]
+    },
+    {
+      id: crypto.randomUUID(),
+      name: "Estudos",
+      emoji: "📘",
+      pages: [
+        {
+          id: crypto.randomUUID(),
+          title: "Aulas",
+          blocks: [
+            createInitialTextBlock({
+              title: "Resumo de aula",
+              category: "Resumo",
+              x: 2340,
+              y: 2380,
+              content: "Conceito principal\nExemplo prático\nDúvidas para pesquisar depois"
+            }),
+            createInitialTextBlock({
+              title: "Flashcards",
+              category: "Revisão",
+              x: 2820,
+              y: 2420,
+              content: "Transforme pontos importantes em perguntas curtas para revisar mais tarde."
+            })
+          ]
+        },
+        {
+          id: crypto.randomUUID(),
+          title: "Leituras",
+          blocks: [
+            createInitialTextBlock({
+              title: "Fila de leitura",
+              category: "Referências",
+              x: 2450,
+              y: 2450,
+              content: "Artigos, capítulos e links úteis ficam aqui com uma nota sobre por que importam."
+            })
           ]
         }
       ]
@@ -286,6 +436,16 @@ const initialState = {
   ],
   selectedNotebookId: null,
   selectedPageId: null,
+  categoryColors: {
+    Planejamento: "sky",
+    Ideias: "gold",
+    Inspiração: "lavender",
+    Tarefas: "mint",
+    Reuniões: "rose",
+    Resumo: "sage",
+    Revisão: "peach",
+    Referências: "sand"
+  },
   camera: {
     x: 0,
     y: 0,
@@ -303,17 +463,22 @@ const uiState = {
   notebookMenuAnchor: null,
   openPageMenuId: null,
   pageMenuAnchor: null,
+  openBlockListMenuId: null,
+  blockListMenuAnchor: null,
   editingNotebookId: null,
   editingPageId: null,
   editingBlockId: null,
   editingCategoryBlockId: null,
   openCategoryMenuBlockId: null,
+  openCategoryColorBlockId: null,
+  openFormatToolbarBlockId: null,
   openMenuBlockId: null,
   blockMenuAnchor: null,
   canvasMenuAnchor: null,
   actionPopover: null,
   collapsedPageMenuCloseTimer: null,
   collapsedPageMenuNotebookId: null,
+  isCollapsedPageHoverSuppressed: false,
   clipboardBlock: null,
   cameraAnimation: null,
   selectedItem: null,
@@ -327,6 +492,7 @@ const elements = {
   notebookList: document.getElementById("notebookList"),
   blockLayer: document.getElementById("blockLayer"),
   canvasGrid: document.getElementById("canvasGrid"),
+  canvasLocationLabel: document.getElementById("canvasLocationLabel"),
   canvasStage: document.getElementById("canvasStage"),
   canvasViewport: document.getElementById("canvasViewport"),
   zoomInButton: document.getElementById("zoomInButton"),
@@ -334,6 +500,7 @@ const elements = {
   zoomLevel: document.getElementById("zoomLevel"),
   fitViewButton: document.getElementById("fitViewButton"),
   addNotebookButton: document.getElementById("addNotebookButton"),
+  addPageButton: document.getElementById("addPageButton"),
   addTextButton: document.getElementById("addTextButton"),
   addTableButton: document.getElementById("addTableButton"),
   toggleSidebarButton: document.getElementById("toggleSidebarButton"),
@@ -355,6 +522,7 @@ const elements = {
 };
 
 elements.addNotebookButton.addEventListener("click", (event) => createNotebook(event));
+elements.addPageButton.addEventListener("click", (event) => createPage(state.selectedNotebookId, event));
 elements.notebookList.addEventListener("dblclick", handleTreeDoubleClick);
 elements.addTextButton.addEventListener("click", () => createBlock("text"));
 elements.addTableButton.addEventListener("click", () => createBlock("table"));
@@ -390,6 +558,7 @@ document.addEventListener("pointerdown", (event) => {
 
   const clickedNotebookMenu = event.target.closest(".notebook-actions")
     || event.target.closest(".page-actions")
+    || event.target.closest(".note-actions")
     || event.target.closest(".notebook-menu");
   const clickedActionPopover = event.target.closest(".action-popover");
   const clickedCollapsedPageMenu = event.target.closest(".collapsed-page-menu");
@@ -399,8 +568,9 @@ document.addEventListener("pointerdown", (event) => {
   const clickedBlockMenu = event.target.closest(".settings-menu")
     || event.target.closest(".settings-toggle-button")
     || event.target.closest(".resize-handle");
-  const shouldCloseNotebookMenu = (uiState.openNotebookMenuId || uiState.openPageMenuId) && !clickedNotebookMenu;
+  const shouldCloseNotebookMenu = (uiState.openNotebookMenuId || uiState.openPageMenuId || uiState.openBlockListMenuId) && !clickedNotebookMenu;
   const shouldCloseCategoryMenu = uiState.openCategoryMenuBlockId && !clickedCategoryControl;
+  const shouldCloseCategoryColorMenu = uiState.openCategoryColorBlockId && !clickedCategoryControl;
   const shouldCloseCanvasMenu = uiState.canvasMenuAnchor && !clickedCanvasMenu;
   const shouldCloseSettingsMenu = uiState.isSettingsMenuOpen && !clickedSettingsMenu;
   const shouldCloseBlockMenu = uiState.openMenuBlockId && !clickedBlockMenu;
@@ -413,12 +583,15 @@ document.addEventListener("pointerdown", (event) => {
     removeActionPopover();
   }
 
-  if (shouldCloseNotebookMenu || shouldCloseCategoryMenu || shouldCloseCanvasMenu || shouldCloseSettingsMenu || shouldCloseBlockMenu) {
+  if (shouldCloseNotebookMenu || shouldCloseCategoryMenu || shouldCloseCategoryColorMenu || shouldCloseCanvasMenu || shouldCloseSettingsMenu || shouldCloseBlockMenu) {
     uiState.openNotebookMenuId = clickedNotebookMenu ? uiState.openNotebookMenuId : null;
     uiState.notebookMenuAnchor = clickedNotebookMenu ? uiState.notebookMenuAnchor : null;
     uiState.openPageMenuId = clickedNotebookMenu ? uiState.openPageMenuId : null;
     uiState.pageMenuAnchor = clickedNotebookMenu ? uiState.pageMenuAnchor : null;
+    uiState.openBlockListMenuId = clickedNotebookMenu ? uiState.openBlockListMenuId : null;
+    uiState.blockListMenuAnchor = clickedNotebookMenu ? uiState.blockListMenuAnchor : null;
     uiState.openCategoryMenuBlockId = clickedCategoryControl ? uiState.openCategoryMenuBlockId : null;
+    uiState.openCategoryColorBlockId = clickedCategoryControl ? uiState.openCategoryColorBlockId : null;
     uiState.canvasMenuAnchor = clickedCanvasMenu ? uiState.canvasMenuAnchor : null;
     if (shouldCloseCanvasMenu) {
       removeCanvasContextMenu();
@@ -430,6 +603,7 @@ document.addEventListener("pointerdown", (event) => {
     uiState.blockMenuAnchor = clickedBlockMenu ? uiState.blockMenuAnchor : null;
     renderBlocks();
     if (shouldCloseNotebookMenu) {
+      uiState.isCollapsedPageHoverSuppressed = false;
       renderNotebookList();
     }
   }
@@ -440,11 +614,16 @@ function closeOpenMenus() {
   uiState.notebookMenuAnchor = null;
   uiState.openPageMenuId = null;
   uiState.pageMenuAnchor = null;
+  uiState.openBlockListMenuId = null;
+  uiState.blockListMenuAnchor = null;
   uiState.openCategoryMenuBlockId = null;
+  uiState.openCategoryColorBlockId = null;
   uiState.editingCategoryBlockId = null;
+  uiState.openFormatToolbarBlockId = null;
   uiState.openMenuBlockId = null;
   uiState.blockMenuAnchor = null;
   uiState.canvasMenuAnchor = null;
+  uiState.isCollapsedPageHoverSuppressed = false;
   setSettingsMenuOpen(false);
   removeCanvasContextMenu();
   removeCollapsedPageMenu();
@@ -684,7 +863,8 @@ function updateSelectionMarks() {
 
   const { type, id } = uiState.selectedItem;
   if (type === "block") {
-    document.querySelector(`[data-block-id="${CSS.escape(id)}"]`)?.classList.add("is-selected");
+    document.querySelectorAll(`[data-block-id="${CSS.escape(id)}"]`)
+      .forEach((element) => element.classList.add("is-selected"));
     const noteButtons = [...document.querySelectorAll(".note-link")];
     noteButtons
       .filter((button) => button.dataset.blockId === id)
@@ -802,8 +982,8 @@ function deleteSelectedItem() {
 }
 
 function getNotebookMenuPosition(anchor) {
-  const menuWidth = 132;
-  const menuHeight = 124;
+  const menuWidth = 156;
+  const menuHeight = 196;
   const margin = 8;
   const gap = 6;
 
@@ -818,7 +998,7 @@ function getNotebookMenuPosition(anchor) {
 }
 
 function getNotebookContextAnchor(event) {
-  const menuWidth = 132;
+  const menuWidth = 156;
   const gap = 6;
   return {
     right: event.clientX + menuWidth,
@@ -836,6 +1016,8 @@ setGridVisible(loadGridPreference(), { shouldPersist: false });
 render();
 
 function loadState() {
+  LEGACY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+
   const saved = localStorage.getItem(STORAGE_KEY);
 
   if (!saved) {
@@ -978,14 +1160,18 @@ function replaceNotebookState(nextState) {
   uiState.notebookMenuAnchor = null;
   uiState.openPageMenuId = null;
   uiState.pageMenuAnchor = null;
+  uiState.openBlockListMenuId = null;
+  uiState.blockListMenuAnchor = null;
   uiState.editingNotebookId = null;
   uiState.editingPageId = null;
   uiState.editingBlockId = null;
   uiState.editingCategoryBlockId = null;
   uiState.openCategoryMenuBlockId = null;
+  uiState.openCategoryColorBlockId = null;
   uiState.openMenuBlockId = null;
   uiState.blockMenuAnchor = null;
   uiState.canvasMenuAnchor = null;
+  uiState.openFormatToolbarBlockId = null;
   uiState.clipboardBlock = null;
   uiState.selectedItem = null;
   removeCanvasContextMenu();
@@ -1055,10 +1241,13 @@ function setButtonTextAndLabels(element, label) {
 }
 
 function applyStaticTranslations() {
-  document.title = t("appTitle");
+  updateDocumentTitle();
   elements.addNotebookButton.setAttribute("aria-label", t("newNotebook"));
   elements.addNotebookButton.setAttribute("title", t("newNotebook"));
   elements.addNotebookButton.dataset.tooltip = t("newNotebook");
+  elements.addPageButton.setAttribute("aria-label", t("newPage"));
+  elements.addPageButton.setAttribute("title", t("newPage"));
+  elements.addPageButton.dataset.tooltip = t("newPage");
   elements.addTextButton.setAttribute("aria-label", t("text"));
   elements.addTextButton.setAttribute("title", t("text"));
   elements.addTextButton.dataset.tooltip = t("text");
@@ -1091,22 +1280,14 @@ function localizeBlockNode(node) {
   setText(node.querySelector(".change-category-button"), t("category"));
   setText(node.querySelector(".copy-block-button"), t("copy"));
   setText(node.querySelector(".paste-block-button"), t("pasteCopy"));
-  setText(node.querySelector(".menu-label"), t("color"));
   setText(node.querySelector(".remove-block-button"), t("delete"));
   const toolbar = node.querySelector(".text-format-toolbar");
   toolbar?.setAttribute("aria-label", t("textFormatting"));
-  const boldButton = node.querySelector('[data-command="bold"]');
-  boldButton?.setAttribute("aria-label", t("bold"));
-  boldButton?.setAttribute("title", t("bold"));
-  const italicButton = node.querySelector('[data-command="italic"]');
-  italicButton?.setAttribute("aria-label", t("italic"));
-  italicButton?.setAttribute("title", t("italic"));
-  const underlineButton = node.querySelector('[data-command="underline"]');
-  underlineButton?.setAttribute("aria-label", t("underline"));
-  underlineButton?.setAttribute("title", t("underline"));
-  const listButton = node.querySelector('[data-command="insertUnorderedList"]');
-  listButton?.setAttribute("aria-label", t("list"));
-  listButton?.setAttribute("title", t("list"));
+  node.querySelectorAll(".text-format-button[data-label-key]").forEach((button) => {
+    const label = t(button.dataset.labelKey);
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+  });
   node.querySelector(".text-editor")?.setAttribute("data-placeholder", t("writeHere"));
   node.querySelector(".resize-handle")?.setAttribute("aria-label", t("resizeBlock"));
   setText(node.querySelector(".add-row-button"), t("rowPlus"));
@@ -1115,11 +1296,6 @@ function localizeBlockNode(node) {
   setText(node.querySelector(".remove-column-button"), t("columnMinus"));
   setText(node.querySelector(".toggle-header-button"), t("header"));
   setText(node.querySelector(".clear-table-button"), t("clearTable"));
-  node.querySelector('[data-color="default"]')?.setAttribute("aria-label", t("defaultColor"));
-  node.querySelector('[data-color="peach"]')?.setAttribute("aria-label", t("peachColor"));
-  node.querySelector('[data-color="sage"]')?.setAttribute("aria-label", t("sageColor"));
-  node.querySelector('[data-color="sky"]')?.setAttribute("aria-label", t("skyColor"));
-  node.querySelector('[data-color="rose"]')?.setAttribute("aria-label", t("roseColor"));
 }
 
 function toggleTheme() {
@@ -1167,14 +1343,35 @@ function getSelectedNotebook() {
   return state.notebooks.find((notebook) => notebook.id === state.selectedNotebookId) || null;
 }
 
+function updateDocumentTitle() {
+  const notebookName = getSelectedNotebook()?.name?.trim();
+  document.title = notebookName
+    ? `${t("appTitle")} - ${notebookName}`
+    : `${t("appTitle")}`;
+}
+
 function getSelectedPage() {
   const notebook = getSelectedNotebook();
   return notebook?.pages.find((page) => page.id === state.selectedPageId) || null;
 }
 
+function updateCanvasLocationLabel() {
+  if (!elements.canvasLocationLabel) {
+    return;
+  }
+
+  const notebook = getSelectedNotebook();
+  const page = getSelectedPage();
+  const shouldShow = uiState.isSidebarCollapsed && notebook && page;
+  elements.canvasLocationLabel.hidden = !shouldShow;
+  elements.canvasLocationLabel.textContent = shouldShow ? `${notebook.name} - ${page.title}` : "";
+}
+
 function render() {
   bootstrapSelection();
   syncExpandedState();
+  updateDocumentTitle();
+  updateCanvasLocationLabel();
   renderNotebookList();
   renderBlocks();
   updateCamera();
@@ -1194,6 +1391,8 @@ function renderKeepingCollapsedPageMenu(notebookId = uiState.collapsedPageMenuNo
 
   bootstrapSelection();
   syncExpandedState();
+  updateDocumentTitle();
+  updateCanvasLocationLabel();
   renderCollapsedPageMenuContent(state.notebooks.find((item) => item.id === notebookId), menu);
   renderBlocks();
   updateCamera();
@@ -1232,15 +1431,19 @@ function renderNotebookList() {
       ? createNotebookRenameField(notebook)
       : createNotebookButton(notebook);
 
-    const addPageHoverButton = createNotebookPageButton(notebook.id);
-
     notebookRow.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (uiState.isSidebarCollapsed) {
+        uiState.isCollapsedPageHoverSuppressed = true;
+        removeCollapsedPageMenu();
+      }
       uiState.openNotebookMenuId = notebook.id;
       uiState.notebookMenuAnchor = getNotebookContextAnchor(event);
       uiState.openPageMenuId = null;
       uiState.pageMenuAnchor = null;
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
       uiState.openMenuBlockId = null;
       uiState.blockMenuAnchor = null;
       render();
@@ -1249,6 +1452,7 @@ function renderNotebookList() {
       showCollapsedPageMenu(notebook, notebookRow);
     });
     notebookRow.addEventListener("pointerleave", () => {
+      uiState.isCollapsedPageHoverSuppressed = false;
       scheduleCollapsedPageMenuClose();
     });
     notebookRow.addEventListener("focusin", () => {
@@ -1256,7 +1460,7 @@ function renderNotebookList() {
     });
 
     const notebookActions = document.createElement("div");
-    notebookActions.className = "notebook-actions";
+    notebookActions.className = `notebook-actions ${uiState.openNotebookMenuId === notebook.id ? "active" : ""}`;
     notebookActions.addEventListener("pointerdown", (event) => {
       event.stopPropagation();
     });
@@ -1275,6 +1479,9 @@ function renderNotebookList() {
     });
     notebookMenuButton.addEventListener("click", (event) => {
       event.stopPropagation();
+      selectItem("notebook", notebook.id);
+      state.selectedNotebookId = notebook.id;
+      state.selectedPageId = notebook.pages[0]?.id || null;
       if (uiState.openNotebookMenuId === notebook.id) {
         uiState.openNotebookMenuId = null;
         uiState.notebookMenuAnchor = null;
@@ -1283,6 +1490,10 @@ function renderNotebookList() {
         uiState.notebookMenuAnchor = getNotebookContextAnchor(event);
         uiState.openPageMenuId = null;
         uiState.pageMenuAnchor = null;
+        uiState.openBlockListMenuId = null;
+        uiState.blockListMenuAnchor = null;
+        uiState.openMenuBlockId = null;
+        uiState.blockMenuAnchor = null;
       }
       render();
     });
@@ -1294,6 +1505,18 @@ function renderNotebookList() {
       const menuPosition = getNotebookMenuPosition(uiState.notebookMenuAnchor);
       menu.style.setProperty("--notebook-menu-left", `${menuPosition.left}px`);
       menu.style.setProperty("--notebook-menu-top", `${menuPosition.top}px`);
+
+      const newPageButton = document.createElement("button");
+      newPageButton.type = "button";
+      newPageButton.className = "ghost menu-action";
+      newPageButton.textContent = t("newPage");
+      newPageButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        uiState.openNotebookMenuId = null;
+        uiState.notebookMenuAnchor = null;
+        document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+        createPage(notebook.id, event);
+      });
 
       const iconButton = document.createElement("button");
       iconButton.type = "button";
@@ -1330,11 +1553,11 @@ function renderNotebookList() {
         deleteNotebook(notebook.id, event);
       });
 
-      menu.append(iconButton, renameButton, deleteButton);
+      menu.append(newPageButton, iconButton, renameButton, deleteButton);
       document.body.appendChild(menu);
     }
 
-    notebookRow.append(notebookToggleButton, notebookButton, notebookActions, addPageHoverButton);
+    notebookRow.append(notebookToggleButton, notebookButton, notebookActions);
     group.appendChild(notebookRow);
 
     if (uiState.expandedNotebookIds.has(notebook.id)) {
@@ -1367,13 +1590,16 @@ function renderNotebookList() {
         pageRow.addEventListener("contextmenu", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          selectItem("page", page.id);
-          state.selectedNotebookId = notebook.id;
-          state.selectedPageId = page.id;
+          if (uiState.isSidebarCollapsed) {
+            uiState.isCollapsedPageHoverSuppressed = true;
+            removeCollapsedPageMenu();
+          }
           uiState.openPageMenuId = page.id;
           uiState.pageMenuAnchor = getNotebookContextAnchor(event);
           uiState.openNotebookMenuId = null;
           uiState.notebookMenuAnchor = null;
+          uiState.openBlockListMenuId = null;
+          uiState.blockListMenuAnchor = null;
           uiState.openMenuBlockId = null;
           uiState.blockMenuAnchor = null;
           render();
@@ -1386,10 +1612,31 @@ function renderNotebookList() {
           notesWrap.className = "tree-children";
 
           pageNotes.forEach((block, index) => {
+            const noteRow = document.createElement("div");
+            noteRow.className = "note-row";
             const noteButton = uiState.editingBlockId === block.id
               ? createBlockRenameField(block, index)
               : createBlockButton(notebook, page, block, index);
-            notesWrap.appendChild(noteButton);
+            const noteActions = createBlockListActions(notebook, page, block);
+            noteRow.addEventListener("contextmenu", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (uiState.isSidebarCollapsed) {
+                uiState.isCollapsedPageHoverSuppressed = true;
+                removeCollapsedPageMenu();
+              }
+              uiState.openBlockListMenuId = block.id;
+              uiState.blockListMenuAnchor = getNotebookContextAnchor(event);
+              uiState.openNotebookMenuId = null;
+              uiState.notebookMenuAnchor = null;
+              uiState.openPageMenuId = null;
+              uiState.pageMenuAnchor = null;
+              uiState.openMenuBlockId = null;
+              uiState.blockMenuAnchor = null;
+              render();
+            });
+            noteRow.append(noteButton, noteActions);
+            notesWrap.appendChild(noteRow);
           });
 
           pageWrap.appendChild(notesWrap);
@@ -1424,6 +1671,10 @@ function createNotebookButton(notebook) {
     state.selectedPageId = notebook.pages[0]?.id || null;
     uiState.openNotebookMenuId = null;
     uiState.notebookMenuAnchor = null;
+    uiState.openPageMenuId = null;
+    uiState.pageMenuAnchor = null;
+    uiState.openBlockListMenuId = null;
+    uiState.blockListMenuAnchor = null;
     if (uiState.isSidebarCollapsed) {
       const row = event.currentTarget.closest(".notebook-row");
       if (row) {
@@ -1454,6 +1705,10 @@ function createNotebookButton(notebook) {
 
 function showCollapsedPageMenu(notebook, row) {
   if (!uiState.isSidebarCollapsed || !elements.sidebar.classList.contains("collapsed")) {
+    return;
+  }
+
+  if (uiState.isCollapsedPageHoverSuppressed || isTreeContextMenuOpen()) {
     return;
   }
 
@@ -1495,6 +1750,10 @@ function showCollapsedPageMenu(notebook, row) {
   menu.addEventListener("click", (event) => event.stopPropagation());
   renderCollapsedPageMenuContent(notebook, menu);
   document.body.appendChild(menu);
+}
+
+function isTreeContextMenuOpen() {
+  return Boolean(uiState.openNotebookMenuId || uiState.openPageMenuId || uiState.openBlockListMenuId);
 }
 
 function updateNotebookSelectionMarks() {
@@ -1565,6 +1824,7 @@ function renderCollapsedPageMenuContent(notebook, menu) {
       pageItem.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         event.stopPropagation();
+        uiState.isCollapsedPageHoverSuppressed = true;
         uiState.openPageMenuId = page.id;
         uiState.pageMenuAnchor = getNotebookContextAnchor(event);
         uiState.openNotebookMenuId = null;
@@ -1574,7 +1834,7 @@ function renderCollapsedPageMenuContent(notebook, menu) {
 
       const pageButton = document.createElement("button");
       pageButton.type = "button";
-      pageButton.className = `collapsed-page-menu-page ${page.id === state.selectedPageId && notebook.id === state.selectedNotebookId ? "active" : ""}`;
+      pageButton.className = `collapsed-page-menu-page ${page.id === state.selectedPageId && notebook.id === state.selectedNotebookId ? "active" : ""} ${isSelectedItem("page", page.id) ? "is-selected" : ""}`;
       pageButton.title = t("doubleClickRename");
 
       const pageTitle = document.createElement("span");
@@ -1714,6 +1974,12 @@ function createPageButton(notebook, page, noteCount) {
     selectItem("page", page.id);
     state.selectedNotebookId = notebook.id;
     state.selectedPageId = page.id;
+    uiState.openNotebookMenuId = null;
+    uiState.notebookMenuAnchor = null;
+    uiState.openPageMenuId = null;
+    uiState.pageMenuAnchor = null;
+    uiState.openBlockListMenuId = null;
+    uiState.blockListMenuAnchor = null;
     render();
   });
   pageButton.addEventListener("dblclick", (event) => {
@@ -1743,6 +2009,9 @@ function createPageActions(notebook, page, options = {}) {
   });
   button.addEventListener("click", (event) => {
     event.stopPropagation();
+    selectItem("page", page.id);
+    state.selectedNotebookId = notebook.id;
+    state.selectedPageId = page.id;
     if (uiState.openPageMenuId === page.id) {
       uiState.openPageMenuId = null;
       uiState.pageMenuAnchor = null;
@@ -1751,6 +2020,10 @@ function createPageActions(notebook, page, options = {}) {
       uiState.pageMenuAnchor = getNotebookContextAnchor(event);
       uiState.openNotebookMenuId = null;
       uiState.notebookMenuAnchor = null;
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
+      uiState.openMenuBlockId = null;
+      uiState.blockMenuAnchor = null;
     }
 
     if (options.keepCollapsedPageMenu) {
@@ -1769,6 +2042,30 @@ function createPageActions(notebook, page, options = {}) {
     const menuPosition = getNotebookMenuPosition(uiState.pageMenuAnchor);
     menu.style.setProperty("--notebook-menu-left", `${menuPosition.left}px`);
     menu.style.setProperty("--notebook-menu-top", `${menuPosition.top}px`);
+
+    const newNoteButton = document.createElement("button");
+    newNoteButton.type = "button";
+    newNoteButton.className = "ghost menu-action";
+    newNoteButton.textContent = t("newNote");
+    newNoteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      uiState.openPageMenuId = null;
+      uiState.pageMenuAnchor = null;
+      document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+      createBlockInPage(notebook.id, page.id, "text");
+    });
+
+    const newTableButton = document.createElement("button");
+    newTableButton.type = "button";
+    newTableButton.className = "ghost menu-action";
+    newTableButton.textContent = t("newTable");
+    newTableButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      uiState.openPageMenuId = null;
+      uiState.pageMenuAnchor = null;
+      document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+      createBlockInPage(notebook.id, page.id, "table");
+    });
 
     const renameButton = document.createElement("button");
     renameButton.type = "button";
@@ -1810,7 +2107,7 @@ function createPageActions(notebook, page, options = {}) {
       deletePage(page.id, event, { keepCollapsedPageMenu: options.keepCollapsedPageMenu });
     });
 
-    menu.append(renameButton, deleteButton);
+    menu.append(newNoteButton, newTableButton, renameButton, deleteButton);
     document.body.appendChild(menu);
   }
 
@@ -1827,6 +2124,12 @@ function createBlockButton(notebook, page, block, index) {
     selectItem("block", block.id);
     state.selectedNotebookId = notebook.id;
     state.selectedPageId = page.id;
+    uiState.openNotebookMenuId = null;
+    uiState.notebookMenuAnchor = null;
+    uiState.openPageMenuId = null;
+    uiState.pageMenuAnchor = null;
+    uiState.openBlockListMenuId = null;
+    uiState.blockListMenuAnchor = null;
     focusBlock(block.id);
     render();
   });
@@ -1842,18 +2145,97 @@ function createBlockButton(notebook, page, block, index) {
   return noteButton;
 }
 
-function createNotebookPageButton(notebookId) {
+function createBlockListActions(notebook, page, block) {
+  const wrapper = document.createElement("div");
+  wrapper.className = `note-actions ${uiState.openBlockListMenuId === block.id ? "active" : ""}`;
+
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "add-page-hover-button";
-  button.setAttribute("aria-label", t("newPage"));
-  button.title = t("newPage");
+  button.className = `icon-button notebook-menu-button note-menu-button ${uiState.openBlockListMenuId === block.id ? "active" : ""}`;
+  button.setAttribute("aria-label", `${t("actionsOf")} ${getBlockTitle(block) || t("noteDefault")}`);
+  button.title = t("actions");
+  button.innerHTML = "&ctdot;";
+  button.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
   button.addEventListener("click", (event) => {
     event.stopPropagation();
-    createPage(notebookId, event);
+    selectItem("block", block.id);
+    state.selectedNotebookId = notebook.id;
+    state.selectedPageId = page.id;
+    if (uiState.openBlockListMenuId === block.id) {
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
+    } else {
+      uiState.openBlockListMenuId = block.id;
+      uiState.blockListMenuAnchor = getNotebookContextAnchor(event);
+      uiState.openNotebookMenuId = null;
+      uiState.notebookMenuAnchor = null;
+      uiState.openPageMenuId = null;
+      uiState.pageMenuAnchor = null;
+      uiState.openMenuBlockId = null;
+      uiState.blockMenuAnchor = null;
+    }
+    render();
   });
+  wrapper.appendChild(button);
 
-  return button;
+  if (uiState.openBlockListMenuId === block.id) {
+    document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+    const menu = document.createElement("div");
+    menu.className = "notebook-menu";
+    const menuPosition = getNotebookMenuPosition(uiState.blockListMenuAnchor);
+    menu.style.setProperty("--notebook-menu-left", `${menuPosition.left}px`);
+    menu.style.setProperty("--notebook-menu-top", `${menuPosition.top}px`);
+
+    const renameButton = document.createElement("button");
+    renameButton.type = "button";
+    renameButton.className = "ghost menu-action";
+    renameButton.textContent = t("rename");
+    renameButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
+      document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+      renameBlock(block.id);
+    });
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "ghost menu-action";
+    copyButton.textContent = t("copy");
+    copyButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      uiState.clipboardBlock = cloneBlock(block);
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
+      document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+      render();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "ghost danger menu-action";
+    deleteButton.textContent = t("delete");
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
+      document.querySelectorAll(".notebook-menu").forEach((item) => item.remove());
+      deleteBlock(block.id, {
+        anchor: event,
+        onDeleted: () => {
+          uiState.openBlockListMenuId = null;
+          uiState.blockListMenuAnchor = null;
+        }
+      });
+    });
+
+    menu.append(renameButton, copyButton, deleteButton);
+    document.body.appendChild(menu);
+  }
+
+  return wrapper;
 }
 
 function formatCount(count, singular, plural) {
@@ -2137,7 +2519,7 @@ function renderBlocks() {
     node.style.width = `${block.width || 320}px`;
     node.style.height = `${block.height || 160}px`;
     node.dataset.blockId = block.id;
-    applyBlockColor(node, block.color || "default");
+    applyBlockCategoryColor(node, block.category || "");
     if (isSelectedItem("block", block.id)) {
       node.classList.add("is-selected");
     }
@@ -2145,9 +2527,21 @@ function renderBlocks() {
       node.classList.add("has-table-header");
     }
 
-    node.addEventListener("pointerdown", () => {
+    const selectRenderedBlock = (event) => {
+      if (event?.type === "click" && event.button !== 0) {
+        return;
+      }
+
+      if (event?.type === "click" && node.dataset.skipBlockClickSelection === "true") {
+        delete node.dataset.skipBlockClickSelection;
+        return;
+      }
+
       selectItem("block", block.id);
-    }, true);
+    };
+
+    node.addEventListener("click", selectRenderedBlock, true);
+    node.addEventListener("focusin", selectRenderedBlock);
 
     node.addEventListener("contextmenu", (event) => {
       if (event.target instanceof Element && event.target.closest(".settings-menu")) {
@@ -2156,7 +2550,6 @@ function renderBlocks() {
 
       event.preventDefault();
       event.stopPropagation();
-      selectItem("block", block.id);
       const blockRect = node.getBoundingClientRect();
       const scale = state.camera.scale || 1;
       uiState.openMenuBlockId = block.id;
@@ -2167,6 +2560,10 @@ function renderBlocks() {
       };
       uiState.openNotebookMenuId = null;
       uiState.notebookMenuAnchor = null;
+      uiState.openPageMenuId = null;
+      uiState.pageMenuAnchor = null;
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
       uiState.openCategoryMenuBlockId = null;
       renderBlocks();
     });
@@ -2223,6 +2620,7 @@ function renderBlocks() {
 function setupTextEditor(node, block) {
   const editor = node.querySelector(".text-editor");
   const toolbar = node.querySelector(".text-format-toolbar");
+  const toggleButton = node.querySelector(".text-format-toggle");
   const buttons = [...node.querySelectorAll(".text-format-button")];
   if (!editor || !toolbar) {
     return;
@@ -2239,10 +2637,43 @@ function setupTextEditor(node, block) {
   const updateButtonStates = () => {
     buttons.forEach((button) => {
       const command = button.dataset.command;
-      const isActive = command && document.queryCommandState(command);
+      const value = button.dataset.value;
+      let isActive = command && document.queryCommandState(command);
+      if (command === "formatBlock" && value) {
+        isActive = document.queryCommandValue(command).replace(/[<>]/g, "").toUpperCase() === value;
+      }
+      if (command === "removeFormat") {
+        isActive = false;
+      }
       button.classList.toggle("active", Boolean(isActive));
     });
   };
+
+  const syncToolbarState = () => {
+    const isOpen = uiState.openFormatToolbarBlockId === block.id;
+    node.classList.toggle("formatting-open", isOpen);
+    toolbar.hidden = !isOpen;
+    if (toggleButton) {
+      const label = isOpen ? t("hideFormatting") : t("showFormatting");
+      toggleButton.classList.toggle("active", isOpen);
+      toggleButton.setAttribute("aria-label", label);
+      toggleButton.setAttribute("title", label);
+      toggleButton.setAttribute("aria-expanded", String(isOpen));
+    }
+  };
+
+  syncToolbarState();
+
+  toggleButton?.addEventListener("pointerdown", (event) => event.stopPropagation());
+  toggleButton?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    uiState.openFormatToolbarBlockId = uiState.openFormatToolbarBlockId === block.id ? null : block.id;
+    syncToolbarState();
+    if (uiState.openFormatToolbarBlockId === block.id) {
+      updateButtonStates();
+    }
+  });
 
   buttons.forEach((button) => {
     button.addEventListener("pointerdown", (event) => event.preventDefault());
@@ -2255,7 +2686,7 @@ function setupTextEditor(node, block) {
       }
 
       editor.focus();
-      document.execCommand(command, false, null);
+      document.execCommand(command, false, button.dataset.value || null);
       save();
       updateButtonStates();
     });
@@ -2752,7 +3183,7 @@ function createNotebookWithName(name) {
   render();
 }
 
-function createPage(notebookId = state.selectedNotebookId, anchor = elements.addNotebookButton, options = {}) {
+function createPage(notebookId = state.selectedNotebookId, anchor = elements.addPageButton || elements.addNotebookButton, options = {}) {
   const notebook = state.notebooks.find((item) => item.id === notebookId) || null;
   if (!notebook) {
     return;
@@ -2952,6 +3383,11 @@ function deleteBlock(id, options = {}) {
   }
   uiState.openMenuBlockId = null;
   uiState.blockMenuAnchor = null;
+  uiState.openBlockListMenuId = null;
+  uiState.blockListMenuAnchor = null;
+  if (uiState.openFormatToolbarBlockId === id) {
+    uiState.openFormatToolbarBlockId = null;
+  }
   options.onDeleted?.();
   persist();
 
@@ -3051,6 +3487,26 @@ function renameBlock(id) {
   });
 }
 
+function createBlockInPage(notebookId, pageId, type, position = null) {
+  const notebook = state.notebooks.find((item) => item.id === notebookId) || null;
+  const page = notebook?.pages.find((item) => item.id === pageId) || null;
+  if (!notebook || !page) {
+    return;
+  }
+
+  state.selectedNotebookId = notebook.id;
+  state.selectedPageId = page.id;
+  uiState.expandedNotebookIds.add(notebook.id);
+  uiState.expandedPageIds.add(page.id);
+  uiState.openNotebookMenuId = null;
+  uiState.notebookMenuAnchor = null;
+  uiState.openPageMenuId = null;
+  uiState.pageMenuAnchor = null;
+  uiState.openBlockListMenuId = null;
+  uiState.blockListMenuAnchor = null;
+  createBlock(type, position);
+}
+
 function createBlock(type, position = null) {
   const page = getSelectedPage();
   if (!page) {
@@ -3066,8 +3522,8 @@ function createBlock(type, position = null) {
     color: "default",
     x: position?.x ?? 2500 + offset,
     y: position?.y ?? 2500 + offset,
-    width: type === "table" ? 480 : 340,
-    height: type === "table" ? 260 : 210
+    width: type === "table" ? 480 : TEXT_BLOCK_DEFAULT_WIDTH,
+    height: type === "table" ? 260 : TEXT_BLOCK_DEFAULT_HEIGHT
   };
 
   if (type === "text") {
@@ -3098,6 +3554,66 @@ function getCategoryLabel(category = "") {
   return category.trim();
 }
 
+function getCategoryColorKey(category = "") {
+  const label = getCategoryLabel(category);
+  const savedColor = state.categoryColors?.[getCategoryColorStorageKey(label)];
+  if (isCategoryColorKey(savedColor)) {
+    return savedColor;
+  }
+
+  if (!label) {
+    return "default";
+  }
+
+  const hash = [...label.toLocaleLowerCase()].reduce((total, char) => {
+    return ((total << 5) - total + char.codePointAt(0)) | 0;
+  }, 0);
+
+  const palette = CATEGORY_COLOR_KEYS.filter((key) => key !== "default");
+  return palette[Math.abs(hash) % palette.length];
+}
+
+function getCategoryColorStorageKey(category = "") {
+  return getCategoryLabel(category) || UNCATEGORIZED_CATEGORY_KEY;
+}
+
+function isCategoryColorKey(colorKey) {
+  return CATEGORY_COLOR_KEYS.includes(colorKey);
+}
+
+function getCategoryColorLabel(colorKey) {
+  const labels = {
+    default: "defaultColor",
+    peach: "peachColor",
+    sage: "sageColor",
+    sky: "skyColor",
+    rose: "roseColor",
+    gold: "goldColor",
+    lavender: "lavenderColor",
+    mint: "mintColor",
+    sand: "sandColor"
+  };
+  return t(labels[colorKey] || "defaultColor");
+}
+
+function setCategoryColor(category, colorKey) {
+  if (!isCategoryColorKey(colorKey)) {
+    return;
+  }
+
+  state.categoryColors[getCategoryColorStorageKey(category)] = colorKey;
+}
+
+function updateBlockCategory(block, nextCategory) {
+  const previousKey = getCategoryColorStorageKey(block.category || "");
+  const previousColor = state.categoryColors?.[previousKey];
+  block.category = nextCategory.trim();
+  const nextKey = getCategoryColorStorageKey(block.category || "");
+  if (previousKey !== nextKey && isCategoryColorKey(previousColor) && !state.categoryColors?.[nextKey]) {
+    state.categoryColors[nextKey] = previousColor;
+  }
+}
+
 function getNotebookCategories() {
   const notebook = getSelectedNotebook();
   const categories = new Set();
@@ -3126,12 +3642,61 @@ function createCategoryControl(block) {
   const labelButton = document.createElement("button");
   labelButton.type = "button";
   labelButton.className = "note-category-label";
-  labelButton.textContent = getCategoryLabel(block.category || "") || t("uncategorized");
+  const categoryLabel = getCategoryLabel(block.category || "");
+  const colorKey = getCategoryColorKey(categoryLabel);
+  wrapper.dataset.categoryColor = colorKey;
+  labelButton.dataset.categoryColor = colorKey;
+
+  const colorButton = document.createElement("button");
+  colorButton.type = "button";
+  colorButton.className = "category-color-button";
+  colorButton.setAttribute("aria-label", t("chooseCategoryColor"));
+  colorButton.title = t("chooseCategoryColor");
+  colorButton.dataset.categoryColor = colorKey;
+
+  const colorDot = document.createElement("span");
+  colorDot.className = "category-color-dot";
+  colorDot.dataset.categoryColor = colorKey;
+  colorDot.setAttribute("aria-hidden", "true");
+  colorButton.appendChild(colorDot);
+
+  const labelText = document.createElement("span");
+  labelText.className = "note-category-text";
+  labelText.textContent = categoryLabel || t("uncategorized");
+
+  labelButton.appendChild(labelText);
+  colorButton.addEventListener("pointerdown", (event) => event.stopPropagation());
+  colorButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    uiState.editingCategoryBlockId = null;
+    uiState.openCategoryMenuBlockId = null;
+    uiState.openCategoryColorBlockId = uiState.openCategoryColorBlockId === block.id ? null : block.id;
+    renderBlocks();
+  });
+
+  let categoryClickTimer = null;
   labelButton.addEventListener("pointerdown", (event) => event.stopPropagation());
   labelButton.addEventListener("click", (event) => {
     event.stopPropagation();
+    if (event.detail > 1) {
+      return;
+    }
+
+    window.clearTimeout(categoryClickTimer);
+    categoryClickTimer = window.setTimeout(() => {
+      uiState.editingCategoryBlockId = null;
+      uiState.openCategoryColorBlockId = null;
+      uiState.openCategoryMenuBlockId = uiState.openCategoryMenuBlockId === block.id ? null : block.id;
+      renderBlocks();
+    }, 180);
+  });
+  labelButton.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.clearTimeout(categoryClickTimer);
     uiState.editingCategoryBlockId = block.id;
     uiState.openCategoryMenuBlockId = null;
+    uiState.openCategoryColorBlockId = null;
     renderBlocks();
     requestAnimationFrame(() => {
       const input = document.querySelector(`[data-category-input="${CSS.escape(block.id)}"]`);
@@ -3140,24 +3705,14 @@ function createCategoryControl(block) {
     });
   });
 
-  const arrowButton = document.createElement("button");
-  arrowButton.type = "button";
-  arrowButton.className = "note-category-arrow";
-  arrowButton.setAttribute("aria-label", t("chooseCategory"));
-  arrowButton.title = t("chooseCategory");
-  arrowButton.innerHTML = "&#9662;";
-  arrowButton.addEventListener("pointerdown", (event) => event.stopPropagation());
-  arrowButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    uiState.editingCategoryBlockId = null;
-    uiState.openCategoryMenuBlockId = uiState.openCategoryMenuBlockId === block.id ? null : block.id;
-    renderBlocks();
-  });
-
-  wrapper.append(labelButton, arrowButton);
+  wrapper.append(colorButton, labelButton);
 
   if (uiState.openCategoryMenuBlockId === block.id) {
     wrapper.appendChild(createCategoryDropdown(block));
+  }
+
+  if (uiState.openCategoryColorBlockId === block.id) {
+    wrapper.appendChild(createCategoryColorMenu(block));
   }
 
   return wrapper;
@@ -3179,7 +3734,7 @@ function createCategoryInput(block) {
 
     isFinished = true;
     if (shouldSave) {
-      block.category = input.value.trim();
+      updateBlockCategory(block, input.value);
       persist();
       renderNotebookList();
     }
@@ -3222,12 +3777,24 @@ function createCategoryDropdown(block) {
     const option = document.createElement("button");
     option.type = "button";
     option.className = `note-category-option ${getCategoryLabel(block.category || "") === category ? "active" : ""}`;
-    option.textContent = category;
+    const colorKey = getCategoryColorKey(category);
+    option.dataset.categoryColor = colorKey;
+
+    const colorDot = document.createElement("span");
+    colorDot.className = "category-color-dot";
+    colorDot.dataset.categoryColor = colorKey;
+    colorDot.setAttribute("aria-hidden", "true");
+
+    const optionText = document.createElement("span");
+    optionText.textContent = category;
+
+    option.append(colorDot, optionText);
     option.addEventListener("pointerdown", (event) => event.stopPropagation());
     option.addEventListener("click", (event) => {
       event.stopPropagation();
-      block.category = category;
+      updateBlockCategory(block, category);
       uiState.openCategoryMenuBlockId = null;
+      uiState.openCategoryColorBlockId = null;
       persist();
       renderBlocks();
     });
@@ -3235,6 +3802,41 @@ function createCategoryDropdown(block) {
   });
 
   return dropdown;
+}
+
+function createCategoryColorMenu(block) {
+  const menu = document.createElement("div");
+  menu.className = "note-category-color-menu";
+  const category = getCategoryLabel(block.category || "");
+  const activeColor = getCategoryColorKey(category);
+
+  CATEGORY_COLOR_KEYS.forEach((colorKey) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `category-color-option ${activeColor === colorKey ? "active" : ""}`;
+    button.dataset.categoryColor = colorKey;
+    button.setAttribute("aria-label", getCategoryColorLabel(colorKey));
+    button.title = getCategoryColorLabel(colorKey);
+
+    const colorDot = document.createElement("span");
+    colorDot.className = "category-color-dot";
+    colorDot.dataset.categoryColor = colorKey;
+    colorDot.setAttribute("aria-hidden", "true");
+
+    button.appendChild(colorDot);
+    button.addEventListener("pointerdown", (event) => event.stopPropagation());
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setCategoryColor(category, colorKey);
+      uiState.openCategoryColorBlockId = null;
+      persist();
+      renderBlocks();
+    });
+
+    menu.appendChild(button);
+  });
+
+  return menu;
 }
 
 function bindTableControls(node, block) {
@@ -3277,7 +3879,6 @@ function setupSettingsMenu(node, block, page) {
   const changeCategoryButton = node.querySelector(".change-category-button");
   const copyButton = node.querySelector(".copy-block-button");
   const pasteButton = node.querySelector(".paste-block-button");
-  const colorButtons = node.querySelectorAll(".color-swatch");
 
   if (!toggleButton || !menu) {
     return;
@@ -3318,6 +3919,12 @@ function setupSettingsMenu(node, block, page) {
         x: (event.clientX - blockRect.left) / scale,
         y: (event.clientY - blockRect.top) / scale
       };
+      uiState.openNotebookMenuId = null;
+      uiState.notebookMenuAnchor = null;
+      uiState.openPageMenuId = null;
+      uiState.pageMenuAnchor = null;
+      uiState.openBlockListMenuId = null;
+      uiState.blockListMenuAnchor = null;
     }
     renderBlocks();
   });
@@ -3364,17 +3971,6 @@ function setupSettingsMenu(node, block, page) {
     render();
   });
 
-  colorButtons.forEach((button) => {
-    if (button.dataset.color === (block.color || "default")) {
-      button.classList.add("active");
-    }
-
-    button.addEventListener("click", () => {
-      block.color = button.dataset.color || "default";
-      persist();
-      renderBlocks();
-    });
-  });
 }
 
 function addTableRow(block) {
@@ -3658,6 +4254,7 @@ function setupBlockDrag(node, block) {
   let startY = 0;
   let originX = 0;
   let originY = 0;
+  let hasMoved = false;
 
   node.addEventListener("pointerdown", (event) => {
     if (!canStartBlockDrag(event)) {
@@ -3673,6 +4270,7 @@ function setupBlockDrag(node, block) {
     startY = event.clientY;
     originX = block.x;
     originY = block.y;
+    hasMoved = false;
     node.classList.add("dragging");
     node.setPointerCapture(pointerId);
     event.preventDefault();
@@ -3686,6 +4284,14 @@ function setupBlockDrag(node, block) {
 
     const deltaX = normalizeDeltaByScale(event.clientX - startX);
     const deltaY = normalizeDeltaByScale(event.clientY - startY);
+    if (Math.hypot(event.clientX - startX, event.clientY - startY) > 4) {
+      hasMoved = true;
+    }
+
+    if (!hasMoved) {
+      return;
+    }
+
     block.x = originX + deltaX;
     block.y = originY + deltaY;
     node.style.left = `${block.x}px`;
@@ -3700,6 +4306,12 @@ function setupBlockDrag(node, block) {
     node.classList.remove("dragging");
     node.releasePointerCapture(pointerId);
     pointerId = null;
+    if (event.type === "pointerup" && hasMoved) {
+      node.dataset.skipBlockClickSelection = "true";
+      window.setTimeout(() => delete node.dataset.skipBlockClickSelection, 80);
+    } else if (event.type === "pointerup") {
+      selectItem("block", block.id);
+    }
     persist();
   };
 
@@ -3920,6 +4532,7 @@ function setSidebarCollapsed(collapsed) {
     }, 180);
   } else {
     elements.sidebar.classList.remove("collapsed");
+    uiState.isCollapsedPageHoverSuppressed = false;
     removeCollapsedPageMenu();
   }
 
@@ -3927,6 +4540,7 @@ function setSidebarCollapsed(collapsed) {
   elements.toggleSidebarButton.setAttribute("aria-label", collapsed ? t("expandPanel") : t("collapsePanel"));
   elements.toggleSidebarButton.setAttribute("title", collapsed ? t("expand") : t("collapse"));
   elements.toggleSidebarButton.dataset.tooltip = collapsed ? t("expand") : t("collapse");
+  updateCanvasLocationLabel();
 }
 
 function changeZoom(delta) {
@@ -4011,8 +4625,8 @@ function getIntendedSidebarLayout(viewportWidth) {
 
 function getBlocksBounds(blocks) {
   return blocks.reduce((accumulator, block) => {
-    const width = block.width || (block.type === "table" ? 480 : 340);
-    const height = block.height || (block.type === "table" ? 260 : 210);
+    const width = block.width || (block.type === "table" ? 480 : TEXT_BLOCK_DEFAULT_WIDTH);
+    const height = block.height || (block.type === "table" ? 260 : TEXT_BLOCK_DEFAULT_HEIGHT);
 
     return {
       minX: Math.min(accumulator.minX, block.x),
@@ -4054,8 +4668,8 @@ function focusBlock(blockId, options = {}) {
 
   const safeArea = getCanvasSafeArea();
   const scale = clampZoom(options.scale ?? state.camera.scale ?? 1);
-  const width = block.width || (block.type === "table" ? 480 : 340);
-  const height = block.height || (block.type === "table" ? 260 : 210);
+  const width = block.width || (block.type === "table" ? 480 : TEXT_BLOCK_DEFAULT_WIDTH);
+  const height = block.height || (block.type === "table" ? 260 : TEXT_BLOCK_DEFAULT_HEIGHT);
   const canvasCenter = 2600;
   const blockCenterX = block.x + width / 2;
   const blockCenterY = block.y + height / 2;
@@ -4177,22 +4791,30 @@ function setupTableRowResize(handle, row, block, rowIndex) {
   handle.addEventListener("pointercancel", stopResize);
 }
 
-function applyBlockColor(node, color) {
+function applyBlockCategoryColor(node, category) {
   const isDarkTheme = document.body.classList.contains("dark-theme");
   const palette = isDarkTheme ? {
     default: ["rgba(30, 34, 32, 0.9)", "transparent"],
     peach: ["rgba(58, 42, 34, 0.9)", "transparent"],
     sage: ["rgba(36, 52, 40, 0.9)", "transparent"],
     sky: ["rgba(31, 47, 58, 0.9)", "transparent"],
-    rose: ["rgba(58, 39, 45, 0.9)", "transparent"]
+    rose: ["rgba(58, 39, 45, 0.9)", "transparent"],
+    gold: ["rgba(57, 49, 32, 0.9)", "transparent"],
+    lavender: ["rgba(47, 39, 58, 0.9)", "transparent"],
+    mint: ["rgba(32, 52, 48, 0.9)", "transparent"],
+    sand: ["rgba(54, 47, 38, 0.9)", "transparent"]
   } : {
-    default: ["rgba(255, 251, 245, 0.9)", "transparent"],
-    peach: ["rgba(255, 231, 216, 0.9)", "transparent"],
-    sage: ["rgba(231, 244, 232, 0.9)", "transparent"],
-    sky: ["rgba(226, 241, 252, 0.9)", "transparent"],
-    rose: ["rgba(251, 226, 232, 0.9)", "transparent"]
+    default: ["rgba(255, 253, 248, 0.92)", "transparent"],
+    peach: ["rgba(255, 232, 218, 0.92)", "transparent"],
+    sage: ["rgba(230, 244, 232, 0.92)", "transparent"],
+    sky: ["rgba(224, 240, 251, 0.92)", "transparent"],
+    rose: ["rgba(251, 226, 233, 0.92)", "transparent"],
+    gold: ["rgba(250, 238, 203, 0.92)", "transparent"],
+    lavender: ["rgba(238, 230, 250, 0.92)", "transparent"],
+    mint: ["rgba(222, 244, 239, 0.92)", "transparent"],
+    sand: ["rgba(244, 235, 220, 0.92)", "transparent"]
   };
-  const [background, border] = palette[color] || palette.default;
+  const [background, border] = palette[getCategoryColorKey(category)] || palette.default;
   node.style.setProperty("--note-tint", background);
   node.style.borderColor = border;
 }
@@ -4231,7 +4853,7 @@ function textToEditorHtml(value) {
 function sanitizeEditorHtml(html) {
   const template = document.createElement("template");
   template.innerHTML = typeof html === "string" ? html : "";
-  const allowedTags = new Set(["B", "STRONG", "I", "EM", "U", "BR", "DIV", "P", "UL", "OL", "LI"]);
+  const allowedTags = new Set(["B", "STRONG", "I", "EM", "U", "S", "STRIKE", "BR", "DIV", "P", "H2", "H3", "BLOCKQUOTE", "UL", "OL", "LI"]);
   const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT);
   const elements = [];
 
@@ -4287,8 +4909,20 @@ function sanitizeState(candidate) {
     notebooks: safeNotebooks,
     selectedNotebookId: activeNotebookId,
     selectedPageId: activePageId,
+    categoryColors: sanitizeCategoryColors(candidate?.categoryColors),
     camera: safeCamera
   };
+}
+
+function sanitizeCategoryColors(categoryColors) {
+  if (!isRecord(categoryColors)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(categoryColors)
+      .filter(([category, colorKey]) => typeof category === "string" && isCategoryColorKey(colorKey))
+  );
 }
 
 function sanitizeNotebooks(notebooks) {
@@ -4358,8 +4992,8 @@ function sanitizeBlock(block) {
     color: typeof block.color === "string" ? block.color : "default",
     x: toFiniteNumber(block.x, 2500),
     y: toFiniteNumber(block.y, 2500),
-    width: toFiniteNumber(block.width, type === "table" ? 480 : 340),
-    height: toFiniteNumber(block.height, type === "table" ? 260 : 210)
+    width: toFiniteNumber(block.width, type === "table" ? 480 : TEXT_BLOCK_DEFAULT_WIDTH),
+    height: toFiniteNumber(block.height, type === "table" ? 260 : TEXT_BLOCK_DEFAULT_HEIGHT)
   };
 
   if (type === "text") {
