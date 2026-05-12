@@ -532,6 +532,7 @@ elements.fitViewButton.addEventListener("click", fitViewToBlocks);
 elements.toggleSidebarButton.addEventListener("click", toggleSidebarCompact);
 elements.themeToggleButton.addEventListener("click", toggleTheme);
 elements.settingsButton.addEventListener("click", toggleSettingsMenu);
+elements.sidebar.addEventListener("contextmenu", handleSidebarContextMenu, true);
 elements.darkModeSetting.addEventListener("change", (event) => {
   setTheme(event.target.checked ? "dark" : "light");
 });
@@ -1260,6 +1261,7 @@ function applyStaticTranslations() {
   elements.settingsButton.setAttribute("aria-label", t("settings"));
   elements.settingsButton.setAttribute("title", t("settings"));
   elements.settingsButton.dataset.tooltip = t("settings");
+  setText(elements.settingsButton.querySelector(".settings-sidebar-label"), t("settings"));
   setText(elements.darkModeSetting?.closest(".settings-option")?.querySelector("span"), t("darkMode"));
   setText(elements.gridSetting?.closest(".settings-option")?.querySelector("span"), t("showGrid"));
   setText(elements.languageSettingLabel, t("language"));
@@ -1328,15 +1330,76 @@ function setGridVisible(isVisible, options = {}) {
   }
 }
 
-function toggleSettingsMenu(event) {
+function handleSidebarContextMenu(event) {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const isOverTreeItem = event.target.closest(".notebook-row, .page-row, .note-row")
+    || elements.sidebar.querySelector(".page-row:hover, .note-row:hover")
+    || elements.sidebar.querySelector(".notebook-row:hover");
+  if (isOverTreeItem || event.target.closest(".sidebar-settings-menu")) {
+    return;
+  }
+
+  event.preventDefault();
   event.stopPropagation();
-  setSettingsMenuOpen(!uiState.isSettingsMenuOpen);
+  closeOpenMenus();
+  setSettingsMenuOpen(true, event);
 }
 
-function setSettingsMenuOpen(isOpen) {
+function toggleSettingsMenu(event) {
+  event.stopPropagation();
+  setSettingsMenuOpen(!uiState.isSettingsMenuOpen, elements.settingsButton);
+}
+
+function setSettingsMenuOpen(isOpen, anchor = elements.settingsButton) {
   uiState.isSettingsMenuOpen = isOpen;
   elements.settingsMenu.hidden = !isOpen;
   elements.settingsButton.classList.toggle("active", isOpen);
+
+  if (isOpen) {
+    positionSettingsMenu(anchor);
+  } else {
+    elements.settingsMenu.style.removeProperty("--settings-menu-left");
+    elements.settingsMenu.style.removeProperty("--settings-menu-top");
+  }
+}
+
+function positionSettingsMenu(anchor) {
+  elements.settingsMenu.style.setProperty("--settings-menu-left", "0px");
+  elements.settingsMenu.style.setProperty("--settings-menu-top", "0px");
+
+  const menuRect = elements.settingsMenu.getBoundingClientRect();
+  const menuWidth = menuRect.width || 208;
+  const menuHeight = menuRect.height || 284;
+  const margin = 8;
+  let left = margin;
+  let top = margin;
+
+  if (anchor instanceof Event && Number.isFinite(anchor.clientX) && Number.isFinite(anchor.clientY)) {
+    left = anchor.clientX;
+    top = anchor.clientY;
+  } else {
+    const anchorRect = (anchor instanceof Element ? anchor : elements.settingsButton).getBoundingClientRect();
+    if (uiState.isSidebarCollapsed) {
+      left = anchorRect.right + 10;
+      top = anchorRect.bottom - menuHeight;
+    } else {
+      left = anchorRect.right - menuWidth;
+      top = anchorRect.top - menuHeight - 8;
+      if (top < margin) {
+        top = anchorRect.bottom + 8;
+      }
+    }
+  }
+
+  elements.settingsMenu.style.setProperty("--settings-menu-left", `${clampMenuCoordinate(left, margin, window.innerWidth - menuWidth - margin)}px`);
+  elements.settingsMenu.style.setProperty("--settings-menu-top", `${clampMenuCoordinate(top, margin, window.innerHeight - menuHeight - margin)}px`);
+}
+
+function clampMenuCoordinate(value, min, max) {
+  return Math.max(min, Math.min(value, Math.max(min, max)));
 }
 
 function getSelectedNotebook() {
@@ -1479,9 +1542,6 @@ function renderNotebookList() {
     });
     notebookMenuButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      selectItem("notebook", notebook.id);
-      state.selectedNotebookId = notebook.id;
-      state.selectedPageId = notebook.pages[0]?.id || null;
       if (uiState.openNotebookMenuId === notebook.id) {
         uiState.openNotebookMenuId = null;
         uiState.notebookMenuAnchor = null;
@@ -2261,6 +2321,7 @@ function createNotebookRenameField(notebook) {
   const counter = document.createElement("small");
   counter.className = "tree-count notebook-page-count";
   counter.textContent = formatCount(notebook.pages.length, t("page"), t("pages"));
+
   let isFinished = false;
 
   const finish = (shouldSave) => {
@@ -5084,4 +5145,3 @@ function getTableBlockWidth(block) {
 function getTableBlockHeight(block) {
   return getTableHeight(block) + TABLE_BLOCK_VERTICAL_CHROME;
 }
-
