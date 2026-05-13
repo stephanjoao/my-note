@@ -14,6 +14,12 @@ const TABLE_MIN_COLUMN_WIDTH = 96;
 const TABLE_MIN_ROW_HEIGHT = 42;
 const UNCATEGORIZED_CATEGORY_KEY = "__uncategorized";
 const CATEGORY_COLOR_KEYS = ["default", "peach", "sage", "sky", "rose", "gold", "lavender", "mint", "sand"];
+const NOTEBOOK_EMOJIS = [
+  "📓", "📔", "📒", "📕", "📗", "📘", "📙", "📚",
+  "📝", "📌", "💡", "✅", "⭐", "✨", "🎯", "🗂️",
+  "💼", "🏠", "✈️", "🎨", "🎵", "💻", "🧠", "❤️",
+  "🌱", "☕", "🍳", "🏋️", "🎉", "🔖", "📅", "🔒"
+];
 const translations = {
   pt: {
     appTitle: "my note",
@@ -767,6 +773,39 @@ function showTextPopover(anchor, options) {
   });
 }
 
+function showEmojiPopover(anchor, options) {
+  const popover = createActionPopover(anchor, {
+    width: options.width || 252,
+    estimatedHeight: 208,
+    keepCollapsedPageMenu: options.keepCollapsedPageMenu
+  });
+
+  const title = document.createElement("strong");
+  title.className = "action-popover-title";
+  title.textContent = options.title;
+
+  const grid = document.createElement("div");
+  grid.className = "notebook-emoji-grid";
+
+  options.emojis.forEach((emoji) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `notebook-emoji-choice ${emoji === options.currentValue ? "active" : ""}`;
+    button.textContent = emoji;
+    button.setAttribute("aria-label", `${options.title}: ${emoji}`);
+    button.addEventListener("click", () => {
+      removeActionPopover();
+      options.onSelect(emoji);
+    });
+    grid.appendChild(button);
+  });
+
+  popover.append(title, grid);
+  requestAnimationFrame(() => {
+    (grid.querySelector(".notebook-emoji-choice.active") || grid.querySelector(".notebook-emoji-choice"))?.focus();
+  });
+}
+
 function showConfirmPopover(anchor, options) {
   const popover = createActionPopover(anchor, {
     width: options.width || 248,
@@ -876,6 +915,25 @@ function updateSelectionMarks() {
   document.querySelector(`[data-selectable-type="${CSS.escape(type)}"][data-selectable-id="${CSS.escape(id)}"]`)?.classList.add("is-selected");
 }
 
+function updateTreeActiveMarks() {
+  document.querySelectorAll('.tree-button[data-selectable-type="notebook"]').forEach((button) => {
+    button.classList.toggle("active", button.dataset.selectableId === state.selectedNotebookId);
+  });
+  document.querySelectorAll('.tree-button[data-selectable-type="page"]').forEach((button) => {
+    button.classList.toggle("active", button.dataset.selectableId === state.selectedPageId);
+  });
+  updateSelectionMarks();
+}
+
+function refreshSelectedWorkspace() {
+  updateDocumentTitle();
+  updateCanvasLocationLabel();
+  updateTreeActiveMarks();
+  renderBlocks();
+  updateCamera();
+  persist();
+}
+
 function handleTreeDoubleClick(event) {
   if (!(event.target instanceof Element) || isTextEditingTarget(event.target)) {
     return;
@@ -904,11 +962,22 @@ function handleTreeDoubleClick(event) {
     return;
   }
 
-  event.preventDefault();
   if (treeButton.dataset.selectableType === "notebook") {
-    renameNotebook(treeButton.dataset.selectableId);
+    const notebookId = treeButton.dataset.selectableId;
+    const clickedIcon = event.target.closest(".notebook-emoji");
+    const clickedName = event.target.closest(".notebook-name-label");
+    event.preventDefault();
+    if (clickedIcon) {
+      changeNotebookEmoji(notebookId, clickedIcon);
+      return;
+    }
+    if (clickedName) {
+      renameNotebook(notebookId);
+    }
+    return;
   }
 
+  event.preventDefault();
   if (treeButton.dataset.selectableType === "page") {
     renamePage(treeButton.dataset.selectableId);
   }
@@ -1720,8 +1789,40 @@ function createNotebookButton(notebook) {
   notebookButton.dataset.selectableId = notebook.id;
   notebookButton.dataset.tooltip = notebook.name;
   notebookButton.title = notebook.name;
-  notebookButton.innerHTML = `<span class="notebook-emoji">${escapeHtml(notebook.emoji)}</span><strong>${escapeHtml(notebook.name)}</strong><small class="tree-count notebook-page-count">${formatCount(notebook.pages.length, t("page"), t("pages"))}</small>`;
+
+  const emoji = document.createElement("span");
+  emoji.className = "notebook-emoji";
+  emoji.dataset.notebookIcon = notebook.id;
+  emoji.textContent = notebook.emoji;
+
+  const name = document.createElement("strong");
+  name.className = "notebook-name-label";
+  name.textContent = notebook.name;
+
+  const counter = document.createElement("small");
+  counter.className = "tree-count notebook-page-count";
+  counter.textContent = formatCount(notebook.pages.length, t("page"), t("pages"));
+
+  emoji.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    changeNotebookEmoji(notebook.id, emoji);
+  });
+
+  name.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!uiState.isSidebarCollapsed) {
+      renameNotebook(notebook.id);
+    }
+  });
+
+  notebookButton.append(emoji, name, counter);
   notebookButton.addEventListener("click", (event) => {
+    if (event.detail > 1) {
+      return;
+    }
+
     if (notebook.id === state.selectedNotebookId) {
       return;
     }
@@ -1745,20 +1846,21 @@ function createNotebookButton(notebook) {
       return;
     }
 
-    render();
+    refreshSelectedWorkspace();
   });
   notebookButton.addEventListener("dblclick", (event) => {
+    if (event.target instanceof Element && event.target.closest(".notebook-emoji, .notebook-name-label")) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
     if (uiState.isSidebarCollapsed) {
-      event.preventDefault();
-      event.stopPropagation();
       const row = event.currentTarget.closest(".notebook-row");
       if (row) {
         showCollapsedPageMenu(notebook, row);
       }
-      return;
     }
-
-    renameNotebook(notebook.id);
   });
   return notebookButton;
 }
@@ -1881,6 +1983,7 @@ function renderCollapsedPageMenuContent(notebook, menu) {
     notebook.pages.forEach((page) => {
       const pageItem = document.createElement("div");
       pageItem.className = "collapsed-page-menu-item";
+      pageItem.dataset.pageId = page.id;
       pageItem.addEventListener("contextmenu", (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1903,30 +2006,27 @@ function renderCollapsedPageMenuContent(notebook, menu) {
       noteCount.textContent = formatCount(page.blocks.length, t("note"), t("notes"));
       pageButton.append(pageTitle, noteCount);
 
-      let pageClickTimer = null;
       pageButton.addEventListener("click", (event) => {
         event.stopPropagation();
         if (event.detail > 1) {
           return;
         }
 
-        window.clearTimeout(pageClickTimer);
-        pageClickTimer = window.setTimeout(() => {
-          selectItem("page", page.id);
-          state.selectedNotebookId = notebook.id;
-          state.selectedPageId = page.id;
-          uiState.expandedNotebookIds.add(notebook.id);
-          renderKeepingCollapsedPageMenu(notebook.id);
-        }, 180);
+        selectItem("page", page.id);
+        state.selectedNotebookId = notebook.id;
+        state.selectedPageId = page.id;
+        uiState.expandedNotebookIds.add(notebook.id);
+        refreshSelectedWorkspace();
+        updateCollapsedPageMenuSelection(menu);
       });
       pageButton.addEventListener("dblclick", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        window.clearTimeout(pageClickTimer);
         startCollapsedPageMenuRename({
           type: "page",
           target: pageButton,
           value: page.title,
+          counterText: formatCount(page.blocks.length, t("note"), t("notes")),
           keepCollapsedPageMenu: true,
           onSave: (nextName) => {
             page.title = nextName;
@@ -1945,6 +2045,15 @@ function renderCollapsedPageMenuContent(notebook, menu) {
   }
 
   menu.appendChild(pageList);
+}
+
+function updateCollapsedPageMenuSelection(menu) {
+  menu.querySelectorAll(".collapsed-page-menu-page").forEach((button) => {
+    const pageItem = button.closest(".collapsed-page-menu-item");
+    const pageId = pageItem?.dataset.pageId;
+    button.classList.toggle("active", pageId === state.selectedPageId);
+    button.classList.toggle("is-selected", isSelectedItem("page", pageId));
+  });
 }
 
 function startCollapsedPageMenuRename(options) {
@@ -1988,7 +2097,13 @@ function startCollapsedPageMenuRename(options) {
   });
   input.addEventListener("blur", () => finish(true));
 
-  options.target.replaceChildren(input);
+  if (options.counterText) {
+    const counter = document.createElement("small");
+    counter.textContent = options.counterText;
+    options.target.replaceChildren(input, counter);
+  } else {
+    options.target.replaceChildren(input);
+  }
   requestAnimationFrame(() => {
     input.focus();
     input.select();
@@ -2030,7 +2145,11 @@ function createPageButton(notebook, page, noteCount) {
   pageButton.dataset.selectableType = "page";
   pageButton.dataset.selectableId = page.id;
   pageButton.innerHTML = `<span>${escapeHtml(page.title)}</span><small class="tree-count">${formatCount(noteCount, t("note"), t("notes"))}</small>`;
-  pageButton.addEventListener("click", () => {
+  pageButton.addEventListener("click", (event) => {
+    if (event.detail > 1) {
+      return;
+    }
+
     selectItem("page", page.id);
     state.selectedNotebookId = notebook.id;
     state.selectedPageId = page.id;
@@ -2040,15 +2159,11 @@ function createPageButton(notebook, page, noteCount) {
     uiState.pageMenuAnchor = null;
     uiState.openBlockListMenuId = null;
     uiState.blockListMenuAnchor = null;
-    render();
+    refreshSelectedWorkspace();
   });
   pageButton.addEventListener("dblclick", (event) => {
-    if (uiState.isSidebarCollapsed) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
+    event.preventDefault();
+    event.stopPropagation();
     renamePage(page.id);
   });
   return pageButton;
@@ -2180,7 +2295,11 @@ function createBlockButton(notebook, page, block, index) {
   noteButton.className = `note-link ${isSelectedItem("block", block.id) ? "is-selected" : ""}`;
   noteButton.dataset.blockId = block.id;
   noteButton.textContent = getBlockListLabel(block, index);
-  noteButton.addEventListener("click", () => {
+  noteButton.addEventListener("click", (event) => {
+    if (event.detail > 1) {
+      return;
+    }
+
     selectItem("block", block.id);
     state.selectedNotebookId = notebook.id;
     state.selectedPageId = page.id;
@@ -2191,15 +2310,11 @@ function createBlockButton(notebook, page, block, index) {
     uiState.openBlockListMenuId = null;
     uiState.blockListMenuAnchor = null;
     focusBlock(block.id);
-    render();
+    refreshSelectedWorkspace();
   });
   noteButton.addEventListener("dblclick", (event) => {
-    if (uiState.isSidebarCollapsed) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
+    event.preventDefault();
+    event.stopPropagation();
     renameBlock(block.id);
   });
   return noteButton;
@@ -2359,7 +2474,7 @@ function createNotebookRenameField(notebook) {
 
 function createPageRenameField(page, noteCount) {
   const wrapper = document.createElement("div");
-  wrapper.className = `tree-button inline-rename-field ${page.id === state.selectedPageId ? "active" : ""} ${isSelectedItem("page", page.id) ? "is-selected" : ""}`;
+  wrapper.className = `tree-button inline-rename-field page-rename-field ${page.id === state.selectedPageId ? "active" : ""} ${isSelectedItem("page", page.id) ? "is-selected" : ""}`;
   wrapper.dataset.selectableType = "page";
   wrapper.dataset.selectableId = page.id;
 
@@ -3307,12 +3422,12 @@ function changeNotebookEmoji(id, anchor = elements.notebookList) {
     return;
   }
 
-  showTextPopover(anchor, {
+  showEmojiPopover(anchor, {
     title: t("notebookIcon"),
-    defaultValue: notebook.emoji || getDefaultNotebookEmoji(0),
-    confirmLabel: t("save"),
-    width: 220,
-    onSubmit: (emoji) => {
+    currentValue: notebook.emoji || getDefaultNotebookEmoji(0),
+    emojis: NOTEBOOK_EMOJIS,
+    width: 252,
+    onSelect: (emoji) => {
       notebook.emoji = normalizeNotebookEmoji(emoji);
       render();
     }
@@ -5021,7 +5136,13 @@ function normalizeNotebookEmoji(value) {
     return getDefaultNotebookEmoji(0);
   }
 
-  return Array.from(value.trim())[0] || getDefaultNotebookEmoji(0);
+  const trimmed = value.trim();
+  if (Intl?.Segmenter) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    return segmenter.segment(trimmed)[Symbol.iterator]().next().value?.segment || getDefaultNotebookEmoji(0);
+  }
+
+  return Array.from(trimmed)[0] || getDefaultNotebookEmoji(0);
 }
 
 function sanitizePage(page, pageIndex) {
